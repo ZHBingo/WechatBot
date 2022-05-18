@@ -31,7 +31,7 @@ public class DatabaseConfig {
         druidDataSource.setMinIdle(2);
         druidDataSource.setMaxActive(32);
         druidDataSource.setMaxWait(128);
-        druidDataSource.setTimeBetweenEvictionRunsMillis(60000);
+        druidDataSource.setTimeBetweenEvictionRunsMillis(1800000);
         druidDataSource.setMinEvictableIdleTimeMillis(25200000);
         druidDataSource.setValidationQuery("select now()");
         druidDataSource.setTestWhileIdle(true);
