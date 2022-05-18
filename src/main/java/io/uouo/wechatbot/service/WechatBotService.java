@@ -1,6 +1,8 @@
 package io.uouo.wechatbot.service;
 
+import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
+import io.uouo.wechatbot.domain.WechatReplyMsg;
 
 import java.util.List;
 import java.util.Map;
@@ -95,4 +97,6 @@ public interface WechatBotService {
     void getChatroomMemberNick(String roomid, String wxid);
 
     List<Map<String, String>> getUnReplyMessage();
+
+    AjaxResult replMessage(WechatReplyMsg wechatReplyMsg);
 }

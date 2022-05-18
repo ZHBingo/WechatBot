@@ -2,6 +2,7 @@ package io.uouo.wechatbot.controller;
 
 import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
+import io.uouo.wechatbot.domain.WechatReplyMsg;
 import io.uouo.wechatbot.service.WechatBotService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -128,6 +129,14 @@ public class WechatBotController {
         }
     }
 
+    @PostMapping("/reply_message")
+    public AjaxResult replMessage(@RequestBody WechatReplyMsg wechatReplyMsg) {
+        if (wechatReplyMsg.isValid()) {
+            return wechatBotService.replMessage(wechatReplyMsg);
+        } else {
+            return AjaxResult.error(null);
+        }
+    }
 
     // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ 获取信息 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 

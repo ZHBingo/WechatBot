@@ -3,7 +3,9 @@ package io.uouo.wechatbot.service.impl;
 import com.alibaba.druid.pool.DruidDataSource;
 import io.uouo.wechatbot.client.WechatBotClient;
 import io.uouo.wechatbot.common.WechatBotCommon;
+import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
+import io.uouo.wechatbot.domain.WechatReplyMsg;
 import io.uouo.wechatbot.service.WechatBotService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,8 +27,6 @@ import java.util.Map;
  */
 @Service
 public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
-
-
     /**
      * 注入微信客户端
      */
@@ -176,5 +176,61 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
             throwables.printStackTrace();
         }
         return result;
+    }
+
+    @Override
+    public AjaxResult replMessage(WechatReplyMsg wechatReplyMsg) {
+        // 检查这个消息是否已经回复, 如果已经回复了就没必要再回复了
+        Map<String, String> message = new HashMap<>();
+        try (Connection conn = dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname, date_format(reply_time, 'yyyy/mm/dd') as reply_time from message where id = ?");
+            ps.setString(1, wechatReplyMsg.getId());
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                message.put("id", rs.getString("id"));
+                message.put("wxid", rs.getString("wxid"));
+                message.put("at_wxid", rs.getString("at_wxid"));
+                message.put("at_nickname", rs.getString("at_nickname"));
+            } else {
+                return AjaxResult.error("无效ID");
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+
+        // 无效消息或已经回复, 返回无效ID
+        if (message.isEmpty() || message.get("reply_time") != null) {
+            return AjaxResult.error("无效ID");
+        }
+
+        // 如果这个消息是在群中提出来的, 那么需要发送at消息
+        // 否则发送私聊消息
+
+        // 私聊
+        if (message.get("at_wxid") == null || message.get("at_wxid").trim().length() == 0) {
+            WechatMsg wechatMsg = new WechatMsg();
+            wechatMsg.setWxid(message.get("wxid"));
+            wechatMsg.setContent(wechatReplyMsg.getContent());
+            this.sendTextMsg(wechatMsg);
+        } else {
+            WechatMsg wechatMsg = new WechatMsg();
+            wechatMsg.setWxid(message.get("at_wxid"));
+            wechatMsg.setRoomid(message.get("wxid"));
+            wechatMsg.setNickname(message.get("at_nickname"));
+            wechatMsg.setContent(wechatReplyMsg.getContent());
+            this.sendATMsg(wechatMsg);
+        }
+
+        // 更新发送状态
+        try (Connection conn = dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement("update message set reply_time = now(), reply_content = ? where id = ?");
+            ps.setString(1, wechatReplyMsg.getContent());
+            ps.setString(2, wechatReplyMsg.getId());
+            ps.executeUpdate();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+
+        return AjaxResult.success();
     }
 }

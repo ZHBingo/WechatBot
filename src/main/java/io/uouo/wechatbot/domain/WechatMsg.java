@@ -6,7 +6,7 @@ package io.uouo.wechatbot.domain;
  * @Description: < 描述 >
  */
 public class WechatMsg {
-    private final String _token = "7aa4c334-d687-ec84-ae4d-f3ea6a68ec7a";
+    public static final String _token = "7aa4c334-d687-ec84-ae4d-f3ea6a68ec7a";
 
     private String token;
     /**
