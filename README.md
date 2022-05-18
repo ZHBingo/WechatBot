@@ -1,5 +1,7 @@
 # WeChatBot - Java
 
+> 本项目是在https://github.com/waitcm/WechatBot基础上进行的更改
+
 > 本项目是对 https://github.com/cixingguangming55555/wechat-bot 项目做出的JAVA版本客户端(持续跟进更新), 看了其他几个版本的 觉得写的比较乱, 该有的不该有的都在里边,看着难受, 就自己重写了下, 更简洁,方便上手
 
 ## 声明: 本项目不欢迎华为公司的拥护者(其任何产品)
