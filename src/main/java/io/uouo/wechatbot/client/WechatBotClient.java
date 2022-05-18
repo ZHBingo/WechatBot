@@ -1,29 +1,30 @@
 package io.uouo.wechatbot.client;
 
 import cn.hutool.http.HttpUtil;
+import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import io.uouo.wechatbot.WechatBotApplication;
 import io.uouo.wechatbot.common.WechatBotCommon;
-import io.uouo.wechatbot.common.WechatBotConfig;
 import io.uouo.wechatbot.domain.WechatMsg;
 import io.uouo.wechatbot.domain.WechatReceiveMsg;
 import io.uouo.wechatbot.service.WechatBotService;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.SpringApplication;
 import org.springframework.util.StringUtils;
 
+import javax.annotation.Resource;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
-import java.util.Locale;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -35,8 +36,13 @@ import java.util.concurrent.TimeUnit;
  */
 public class WechatBotClient extends WebSocketClient implements WechatBotCommon {
 
-    @Autowired
+    @Resource
     private WechatBotService wechatBotService;
+
+    @Resource
+    private DruidDataSource dataSource;
+
+    private final Map<String, String> nickNameMap = new HashMap<>();
 
 
     /**
@@ -62,6 +68,12 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     @Override
     public void onOpen(ServerHandshake serverHandshake) {
         System.err.println("已发送尝试连接到微信客户端请求");
+        try {
+            TimeUnit.SECONDS.sleep(3);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        wechatBotService.getWeChatUserList();
     }
 
     /**
@@ -84,72 +96,148 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     //}
     @Override
     public void onMessage(String msg) {
-        // 由于我的机器人是放在某个小服务器上的, 就将接收数据后的处理交给了另外一个服务器(看群里好多群友也这么干的)所以我这里就加了这几行代码,这根据自己的想法进行自定义
-        // 这里也可以不进行转换 直接将微信中接收到的消息交给服务端, 提高效率,但是浪费在网络通信上的资源相对来说就会变多(根据自己需求自信来写没什么特别的)
+        // 如果是群消息, 则只有@的时候才会回复
+        // 如果是单发的消息, 则直接回复
+        // 为了防止微信异常检测, 消息回复有 1 ~ 6秒的延迟
+        // 如果是#号开头的消息, 存盘用于自定义接口回复
+        // 非#开头的消息, 转接自动应答API
         WechatReceiveMsg wechatReceiveMsg = JSONObject.parseObject(msg, WechatReceiveMsg.class);
         if (!WechatBotCommon.HEART_BEAT.equals(wechatReceiveMsg.getType())) {
             System.out.println("微信中收到了消息:" + msg);
-            String content = wechatReceiveMsg.getContent();
+            String content = wechatReceiveMsg.getContent().trim();
             String wxid = wechatReceiveMsg.getWxid();
 
-            WechatMsg wechatMsg = new WechatMsg();
-            wechatMsg.setWxid(wxid);
-            boolean needReply = false;
-            try {
-                if (wxid == null) {
-                    return;
+            if (WechatBotCommon.USER_LIST.equals(wechatReceiveMsg.getType())) {
+                System.err.println("更新用户列表");
+                try {
+                    JSONObject obj = JSON.parseObject(msg);
+                    JSONArray array = obj.getJSONArray("content");
+                    for (int i = 0; i < array.size(); i++) {
+                        JSONObject user = array.getJSONObject(i);
+                        nickNameMap.put(user.getString("wxid"), user.getString("name"));
+                    }
+                } catch (Exception e) {
+                    System.err.println("解析用户信息异常, " + e.getMessage());
+                    e.printStackTrace();
                 }
-                boolean isChatroom = wxid.contains("@chatroom");
+                System.err.println("更新用户列表成功");
+                return;
+            }
 
-                // 如果不是群, 则需要回复
-                needReply = isChatroom == false;
-
-                // 如果是群, 并且包含triggerText, 也需要回复
-                String triggerText = "@狄思思";
-                if (isChatroom && content != null && content.toLowerCase().contains(triggerText)) {
-                    needReply = true;
-                }
-
-                if (needReply) {
-                    // 消息为空, 回复固定文本
-                    if (content == null || "".equals(content.trim())) {
-                        wechatMsg.setContent("我不太明白你在说什么~");
-                        wechatBotService.sendTextMsg(wechatMsg);
+            // bot只回复文字消息
+            if (WechatBotCommon.RECV_TXT_MSG.equals(wechatReceiveMsg.getType())) {
+                WechatMsg wechatMsg = new WechatMsg();
+                wechatMsg.setWxid(wxid);
+                boolean needReply = false;
+                try {
+                    if (wxid == null) {
                         return;
                     }
+                    boolean isChatroom = wxid.contains("@chatroom");
 
+                    // 如果不是群, 则需要回复
+                    needReply = isChatroom == false;
+
+                    // 如果是群, 并且包含triggerText, 也需要回复
                     // 如果是群，需要移除triggerText和一位占位符
                     // 如果群内只是at, 并没有跟其他消息文本, 下面这段逻辑会报错, 回复exception内的消息
-                    if (isChatroom) {
+                    String triggerText = "@狄思思";
+                    if (isChatroom && content.toLowerCase().startsWith(triggerText)) {
                         content = content.toLowerCase().replace(triggerText, "");
                         content = content.substring(1);
+                        content = content.trim();
+                        needReply = true;
                     }
 
-                    wechatMsg.setContent(this.handleReply(content));
-                }
-            } catch (Exception e) {
-                wechatMsg.setContent("我不太明白你在说什么~");
-            }
-            // 发送消息
-            if (needReply) {
-                wechatBotService.sendTextMsg(wechatMsg);
-            }
-        }
+                    if (needReply) {
+                        // 消息为空, 回复固定文本
+                        if ("".equals(content)) {
+                            wechatMsg.setContent("我不太明白你在说什么~");
+                            new Thread(new DelaySendClient(wechatBotService, wechatMsg)).start();
+                            return;
+                        }
 
-        // 是否开启远程处理消息功能
-        if (WechatBotConfig.wechatMsgServerIsOpen) {
-            // 不等于心跳包
-            if (!WechatBotCommon.HEART_BEAT.equals(wechatReceiveMsg.getType())) {
-                HttpUtil.post(WechatBotConfig.wechatMsgServerUrl, msg);
+                        wechatMsg.setContent(this.handleReply(content, wechatReceiveMsg));
+                    }
+                } catch (Exception e) {
+                    wechatMsg.setContent("我不太明白你在说什么~");
+                }
+                // 发送消息
+                if (needReply) {
+                    new Thread(new DelaySendClient(wechatBotService, wechatMsg)).start();
+                }
             }
         }
     }
 
-    private String handleReply(String content) throws UnsupportedEncodingException {
-        content = URLEncoder.encode(content, "UTF-8");
-        String res = HttpUtil.get("https://api.ownthink.com/bot?appid=xiaosi&spoken=" + content);
-        JSONObject obj = JSON.parseObject(res);
-        return obj.getJSONObject("data").getJSONObject("info").getString("text");
+    final List<String> replyTemplate = new ArrayList<String>() {{
+        add("收到，稍等[吃瓜]");
+        add("收到，稍等[OK]");
+        add("[OK]");
+        add("[好的]");
+        add("我记下来了");
+        add("OK");
+        add("你先忙，我待会告诉你[好的]");
+        add("不出意外我待会告诉你");
+        add("好的，老板，马上就好");
+        add("我看看，待会告诉你");
+        add("[嘿哈]");
+    }};
+
+    private String handleReply(String content, WechatReceiveMsg wechatReceiveMsg) throws UnsupportedEncodingException {
+        if (StringUtils.startsWithIgnoreCase(content, "#")) {
+            if (content.equals("#")) {
+                return "你想查询什么呀?";
+            }
+            content = content.substring(1).trim();
+            // 校验合法性, 使用分词器来筛选出必要的主语, 比如库存等, 如果无法正常筛选, 则直接返回无法解析
+            if (this.isQuestion(content) == false) {
+                return "我没理解你的问题 -_-# ";
+            }
+
+            // 保存数据库
+            try {
+                this.saveMessage(content, wechatReceiveMsg);
+                return replyTemplate.get((int) (replyTemplate.size() * Math.random()));
+            } catch (Exception ex) {
+                return "哎呀，我没有记住，可能是哪里出问题了吧~~";
+            }
+        } else {
+            content = URLEncoder.encode(content, "UTF-8");
+            String res = HttpUtil.get("https://api.ownthink.com/bot?appid=xiaosi&spoken=" + content);
+            JSONObject obj = JSON.parseObject(res);
+            return obj.getJSONObject("data").getJSONObject("info").getString("text");
+        }
+    }
+
+    // 检测关键字
+    private boolean isQuestion(String content) {
+        if (content.length() == 0) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    private void saveMessage(String content, WechatReceiveMsg wechatReceiveMsg) {
+        String sql = "insert into wechat.message(id, wxid, content, recv_time, at_wxid, at_nickname) values (?, ?, ?, now(), ?, ?)";
+        try (Connection conn = dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setString(1, wechatReceiveMsg.getId());
+            ps.setString(2, wechatReceiveMsg.getWxid());
+            ps.setString(3, content);
+
+            if (wechatReceiveMsg.getWxid().contains("@chatroom")) {
+                ps.setString(4, wechatReceiveMsg.getId1());
+                ps.setString(5, nickNameMap.getOrDefault(wechatReceiveMsg.getId1(), wechatReceiveMsg.getId1()));
+            } else {
+                ps.setString(4, null);
+                ps.setString(5, null);
+            }
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     /**

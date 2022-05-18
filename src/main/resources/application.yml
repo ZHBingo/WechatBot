@@ -2,12 +2,9 @@
 server:
   port: 18619
 
-
 # 连接到webSocket 连接地址
 wechatBot:
   url: ws://localhost:5555
-
-
 
 # 微信消息处理地址(将消息发送给指定接口)
 wechatBotServer:
@@ -16,9 +13,14 @@ wechatBotServer:
   # 是否开启远程处理微信消息功能
   isOpen: false
 
-
 # 日志配置
 logging:
   level:
     io.uouo: debug
     org.springframework: warn
+
+# database
+database:
+  url: jdbc:mysql://localhost:4096/wechat?serverTimezone=UTC&autoReconnect=true&failOverReadOnly=false&useUnicode=true&characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+  username: 123
+  password: 123

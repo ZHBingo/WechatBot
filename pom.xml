@@ -18,6 +18,7 @@
         <Java-WebSocket.version>1.5.1</Java-WebSocket.version>
         <fastjson.version>1.2.75</fastjson.version>
         <hutool-http.version>5.6.5</hutool-http.version>
+        <druid.version>1.2.8</druid.version>
     </properties>
     <dependencies>
 
@@ -42,11 +43,13 @@
             <artifactId>Java-WebSocket</artifactId>
             <version>${Java-WebSocket.version}</version>
         </dependency>
+
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
             <version>${fastjson.version}</version>
         </dependency>
+
         <!-- https://mvnrepository.com/artifact/cn.hutool/hutool-http -->
         <dependency>
             <groupId>cn.hutool</groupId>
@@ -54,7 +57,16 @@
             <version>${hutool-http.version}</version>
         </dependency>
 
+        <dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>druid</artifactId>
+			<version>${druid.version}</version>
+		</dependency>
 
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
