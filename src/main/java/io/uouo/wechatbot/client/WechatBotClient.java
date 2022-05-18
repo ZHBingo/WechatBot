@@ -124,6 +124,19 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                 return;
             }
 
+            // 收到发送消息回复报文, 更新回复状态
+            if (content.startsWith("send") && "SERVER".equals(wechatReceiveMsg.getSender())) {
+                String sql = "update message set reply_stat = ? where reply_id = ?";
+                try (Connection conn = dataSource.getConnection()) {
+                    PreparedStatement ps = conn.prepareStatement(sql);
+                    ps.setString(1, wechatReceiveMsg.getStatus());
+                    ps.setString(2, wechatReceiveMsg.getId());
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
             // bot只回复文字消息
             if (WechatBotCommon.RECV_TXT_MSG.equals(wechatReceiveMsg.getType())) {
                 WechatMsg wechatMsg = new WechatMsg();
@@ -293,7 +306,9 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
             wechatMsg.setWxid(NULL_MSG);
         }
         // 消息Id
-        wechatMsg.setId(String.valueOf(System.currentTimeMillis()));
+        if (wechatMsg.getId() == null) {
+            wechatMsg.setId(System.currentTimeMillis() + "_" + (int) (Math.random() * 1000));
+        }
         // 发送消息
         String string = JSONObject.toJSONString(wechatMsg);
         System.err.println(":" + string);

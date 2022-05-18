@@ -163,7 +163,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     public List<Map<String, String>> getUnReplyMessage() {
         List<Map<String, String>> result = new ArrayList<>();
         try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select id, content from message where reply_time is null");
+            PreparedStatement ps = conn.prepareStatement("select id, content from message where (reply_stat != 'SUCCSESSED' OR reply_stat is null)");
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -183,11 +183,10 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         // 检查这个消息是否已经回复, 如果已经回复了就没必要再回复了
         Map<String, String> message = new HashMap<>();
         try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname, date_format(reply_time, 'yyyy/mm/dd') as reply_time from message where id = ?");
+            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname from message where id = ? and (reply_stat != 'SUCCSESSED' OR reply_stat is null)");
             ps.setString(1, wechatReplyMsg.getId());
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                message.put("id", rs.getString("id"));
                 message.put("wxid", rs.getString("wxid"));
                 message.put("at_wxid", rs.getString("at_wxid"));
                 message.put("at_nickname", rs.getString("at_nickname"));
@@ -199,7 +198,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         }
 
         // 无效消息或已经回复, 返回无效ID
-        if (message.isEmpty() || message.get("reply_time") != null) {
+        if (message.isEmpty()) {
             return AjaxResult.error("无效ID");
         }
 
@@ -207,13 +206,16 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         // 否则发送私聊消息
 
         // 私聊
+        String replyID = System.currentTimeMillis() + "_" + (int) (Math.random() * 1000);
         if (message.get("at_wxid") == null || message.get("at_wxid").trim().length() == 0) {
             WechatMsg wechatMsg = new WechatMsg();
+            wechatMsg.setId(replyID);
             wechatMsg.setWxid(message.get("wxid"));
             wechatMsg.setContent(wechatReplyMsg.getContent());
             this.sendTextMsg(wechatMsg);
         } else {
             WechatMsg wechatMsg = new WechatMsg();
+            wechatMsg.setId(replyID);
             wechatMsg.setWxid(message.get("at_wxid"));
             wechatMsg.setRoomid(message.get("wxid"));
             wechatMsg.setNickname(message.get("at_nickname"));
@@ -223,9 +225,10 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
 
         // 更新发送状态
         try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("update message set reply_time = now(), reply_content = ? where id = ?");
-            ps.setString(1, wechatReplyMsg.getContent());
-            ps.setString(2, wechatReplyMsg.getId());
+            PreparedStatement ps = conn.prepareStatement("update message set reply_id = ?, reply_time = now(), reply_content = ? where id = ?");
+            ps.setString(1, replyID);
+            ps.setString(2, wechatReplyMsg.getContent());
+            ps.setString(3, wechatReplyMsg.getId());
             ps.executeUpdate();
         } catch (SQLException throwables) {
             throwables.printStackTrace();
