@@ -6,9 +6,7 @@ import io.uouo.wechatbot.service.WechatBotService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author: [青衫] 'QSSSYH@QQ.com'
@@ -115,6 +113,18 @@ public class WechatBotController {
             return AjaxResult.success();
         } else {
             return AjaxResult.error(null);
+        }
+    }
+
+    /**
+     * 获取待回复的消息内容
+     */
+    @PostMapping("/get_unreply_message")
+    public List<Map<String, String>> getUnReplyMessage(@RequestBody WechatMsg wechatMsg) {
+        if (wechatMsg.isValid()) {
+            return wechatBotService.getUnReplyMessage();
+        } else {
+            return new ArrayList<>();
         }
     }
 

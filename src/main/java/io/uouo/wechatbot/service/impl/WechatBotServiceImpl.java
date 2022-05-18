@@ -1,11 +1,22 @@
 package io.uouo.wechatbot.service.impl;
 
+import com.alibaba.druid.pool.DruidDataSource;
 import io.uouo.wechatbot.client.WechatBotClient;
 import io.uouo.wechatbot.common.WechatBotCommon;
 import io.uouo.wechatbot.domain.WechatMsg;
 import io.uouo.wechatbot.service.WechatBotService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import javax.annotation.Resource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author: [青衫] 'QSSSYH@QQ.com'
@@ -16,9 +27,14 @@ import org.springframework.stereotype.Service;
 public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
 
 
-    /** 注入微信客户端 */
-    @Autowired
+    /**
+     * 注入微信客户端
+     */
+    @Resource
     private WechatBotClient wechatBotClient;
+
+    @Resource
+    private DruidDataSource dataSource;
 
     /**
      * 描述: 发送文字消息
@@ -141,5 +157,24 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         wechatMsg.setWxid(roomid);
         wechatMsg.setType(CHATROOM_MEMBER_NICK);
         wechatBotClient.sendMsgUtil(wechatMsg);
+    }
+
+    @Override
+    public List<Map<String, String>> getUnReplyMessage() {
+        List<Map<String, String>> result = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement("select id, content from message where reply_time is null");
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, String> map = new HashMap<>();
+                map.put("id", rs.getString("id"));
+                map.put("content", rs.getString("content"));
+                result.add(map);
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        return result;
     }
 }

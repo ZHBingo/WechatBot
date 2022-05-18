@@ -2,6 +2,9 @@ package io.uouo.wechatbot.service;
 
 import io.uouo.wechatbot.domain.WechatMsg;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * @author: [青衫] 'QSSSYH@QQ.com'
  * @Date: 2021-03-18 20:55
@@ -90,4 +93,6 @@ public interface WechatBotService {
      * @Date 2021-5-6
      */
     void getChatroomMemberNick(String roomid, String wxid);
+
+    List<Map<String, String>> getUnReplyMessage();
 }
