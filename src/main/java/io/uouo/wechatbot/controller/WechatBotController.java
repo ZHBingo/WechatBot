@@ -81,6 +81,21 @@ public class WechatBotController {
         }
     }
 
+    @PostMapping("/send_base64_img_msg")
+    public AjaxResult sendBase64ImgMsg(@RequestBody WechatMsg wechatMsg) {
+        // 发送消息
+        if (wechatMsg.isValid()) {
+            try {
+                wechatBotService.sendBase64ImgMsg(wechatMsg);
+            } catch (Exception e) {
+                return AjaxResult.error(e.getMessage());
+            }
+            return AjaxResult.success();
+        } else {
+            return AjaxResult.error(null);
+        }
+    }
+
     /**
      * 描述: 群组内发送@指定人消息(dll 3.1.0.66版本不可用)
      *

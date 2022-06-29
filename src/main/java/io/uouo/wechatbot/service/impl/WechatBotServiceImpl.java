@@ -7,18 +7,20 @@ import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
 import io.uouo.wechatbot.domain.WechatReplyMsg;
 import io.uouo.wechatbot.service.WechatBotService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  * @author: [青衫] 'QSSSYH@QQ.com'
@@ -163,7 +165,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     public List<Map<String, String>> getUnReplyMessage() {
         List<Map<String, String>> result = new ArrayList<>();
         try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select id, content from message where (reply_stat != 'SUCCSESSED' OR reply_stat is null)");
+            PreparedStatement ps = conn.prepareStatement("select id, content from message where (reply_stat != 'SUCCSESSED' or reply_stat is null)");
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -183,7 +185,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         // 检查这个消息是否已经回复, 如果已经回复了就没必要再回复了
         Map<String, String> message = new HashMap<>();
         try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname from message where id = ? and (reply_stat != 'SUCCSESSED' OR reply_stat is null)");
+            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname from message where id = ? and (reply_stat != 'SUCCSESSED' or reply_stat is null)");
             ps.setString(1, wechatReplyMsg.getId());
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -235,5 +237,29 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         }
 
         return AjaxResult.success();
+    }
+
+    @Override
+    public void sendBase64ImgMsg(WechatMsg wechatMsg) {
+        String date = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        String dir = "C:/screenshot/" + date + "/";
+
+        File dirFile = new File(dir);
+        if (dirFile.isDirectory() == false) {
+            dirFile.mkdirs();
+        }
+        String path = dir + new Date().getTime() + "_" + ((int) (Math.random() * 1000)) + ".png";
+        this.decryptByBase64(wechatMsg.getContent(), path);
+        wechatMsg.setContent(path);
+        wechatMsg.setType(PIC_MSG);
+        wechatBotClient.sendMsgUtil(wechatMsg);
+    }
+
+    public void decryptByBase64(String base64, String filePath) {
+        try {
+            Files.write(Paths.get(filePath), Base64.getDecoder().decode(base64), StandardOpenOption.CREATE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

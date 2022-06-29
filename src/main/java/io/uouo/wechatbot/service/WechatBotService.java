@@ -99,4 +99,6 @@ public interface WechatBotService {
     List<Map<String, String>> getUnReplyMessage();
 
     AjaxResult replMessage(WechatReplyMsg wechatReplyMsg);
+
+    void sendBase64ImgMsg(WechatMsg wechatMsg);
 }
