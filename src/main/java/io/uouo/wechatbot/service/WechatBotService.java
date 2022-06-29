@@ -101,4 +101,6 @@ public interface WechatBotService {
     AjaxResult replMessage(WechatReplyMsg wechatReplyMsg);
 
     void sendBase64ImgMsg(WechatMsg wechatMsg);
+
+    List<Map<String, String>> getUserList();
 }

@@ -153,6 +153,15 @@ public class WechatBotController {
         }
     }
 
+    @PostMapping("/get_user_list")
+    public List<Map<String, String>> getUserList(@RequestBody WechatMsg wechatMsg) {
+        if (wechatMsg.isValid()) {
+            return wechatBotService.getUserList();
+        } else {
+            return new ArrayList<>();
+        }
+    }
+
     // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ 获取信息 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
 
     /**
@@ -163,7 +172,7 @@ public class WechatBotController {
      * @Author 青衫 [2940500@qq.com]
      * @Date 2021-3-29
      */
-    // @GetMapping("/getWeChatUserList")
+    @GetMapping("/get_wechat_user_list")
     public AjaxResult getWeChatUserList() {
         wechatBotService.getWeChatUserList();
         return AjaxResult.success();

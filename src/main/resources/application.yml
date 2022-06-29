@@ -21,6 +21,6 @@ logging:
 
 # database
 database:
-  url: jdbc:mysql://localhost:4096/wechat?serverTimezone=UTC&autoReconnect=true&failOverReadOnly=false&useUnicode=true&characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+  url: jdbc:mysql://localhost:4096/wechat?serverTimezone=UTC&autoReconnect=true&failOverReadOnly=false&useUnicode=true&characterEncoding=utf8&useSSL=false&allowMultiQueries=true&rewriteBatchedStatements=true
   username: 123
   password: 123

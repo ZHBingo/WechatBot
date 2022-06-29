@@ -101,7 +101,17 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
         // 为了防止微信异常检测, 消息回复有 1 ~ 6秒的延迟
         // 如果是#号开头的消息, 存盘用于自定义接口回复
         // 非#开头的消息, 转接自动应答API
-        WechatReceiveMsg wechatReceiveMsg = JSONObject.parseObject(msg, WechatReceiveMsg.class);
+        WechatReceiveMsg wechatReceiveMsg = new WechatReceiveMsg();
+        try {
+            wechatReceiveMsg = JSONObject.parseObject(msg, WechatReceiveMsg.class);
+        } catch (Exception e) {
+            System.out.println("-> " + e.getMessage());
+            System.out.println("=========================");
+            System.out.println("message = " + msg);
+            System.out.println("=========================");
+            return;
+        }
+
         if (!WechatBotCommon.HEART_BEAT.equals(wechatReceiveMsg.getType())) {
             System.out.println("微信中收到了消息:" + msg);
             String content = wechatReceiveMsg.getContent().trim();
@@ -109,6 +119,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
 
             if (WechatBotCommon.USER_LIST.equals(wechatReceiveMsg.getType())) {
                 System.err.println("更新用户列表");
+                nickNameMap.clear();
                 try {
                     JSONObject obj = JSON.parseObject(msg);
                     JSONArray array = obj.getJSONArray("content");
@@ -120,6 +131,34 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                     System.err.println("解析用户信息异常, " + e.getMessage());
                     e.printStackTrace();
                 }
+
+                if (nickNameMap.isEmpty() == false) {
+                    try (Connection conn = dataSource.getConnection()) {
+                        PreparedStatement truncateUserList = conn.prepareStatement("truncate table userlist");
+                        truncateUserList.execute();
+
+                        PreparedStatement ps = conn.prepareStatement("insert into userlist(`wxid`,`name`) values(?,?)");
+
+                        int i = 0;
+                        for (String key : nickNameMap.keySet()) {
+                            ps.setString(1, key);
+                            ps.setString(2, nickNameMap.get(key));
+                            ps.addBatch();
+                            if (i++ > 500) {
+                                i = 0;
+                                ps.executeBatch();
+                                ps.clearBatch();
+                            }
+                        }
+                        if (i > 0) {
+                            ps.executeBatch();
+                            ps.clearBatch();
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 System.err.println("更新用户列表成功");
                 return;
             }

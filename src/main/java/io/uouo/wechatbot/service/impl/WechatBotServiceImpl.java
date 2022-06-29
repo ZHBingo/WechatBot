@@ -181,6 +181,25 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     }
 
     @Override
+    public List<Map<String, String>> getUserList() {
+        List<Map<String, String>> result = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement("select wxid, name from userlist");
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, String> map = new HashMap<>();
+                map.put("wxid", rs.getString("wxid"));
+                map.put("name", rs.getString("name"));
+                result.add(map);
+            }
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        return result;
+    }
+
+    @Override
     public AjaxResult replMessage(WechatReplyMsg wechatReplyMsg) {
         // 检查这个消息是否已经回复, 如果已经回复了就没必要再回复了
         Map<String, String> message = new HashMap<>();
