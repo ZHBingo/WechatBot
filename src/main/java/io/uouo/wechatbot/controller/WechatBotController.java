@@ -172,7 +172,7 @@ public class WechatBotController {
      * @Author 青衫 [2940500@qq.com]
      * @Date 2021-3-29
      */
-    @GetMapping("/get_wechat_user_list")
+    @PostMapping("/get_wechat_user_list")
     public AjaxResult getWeChatUserList() {
         wechatBotService.getWeChatUserList();
         return AjaxResult.success();
