@@ -267,7 +267,13 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         if (dirFile.isDirectory() == false) {
             dirFile.mkdirs();
         }
-        String path = dir + new Date().getTime() + "_" + ((int) (Math.random() * 1000)) + ".png";
+        String suffix = wechatMsg.getNickname();
+        if ("gif".equals(suffix)) {
+            suffix = "gif";
+        } else {
+            suffix = "png";
+        }
+        String path = dir + new Date().getTime() + "_" + ((int) (Math.random() * 1000)) + "."+ suffix;
         this.decryptByBase64(wechatMsg.getContent(), path);
         wechatMsg.setContent(path);
         wechatMsg.setType(PIC_MSG);
