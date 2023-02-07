@@ -1,5 +1,6 @@
 package io.uouo.wechatbot.client;
 
+import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
@@ -209,7 +210,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                             return;
                         }
 
-                        wechatMsg.setContent(this.handleReply(content, wechatReceiveMsg));
+                        wechatMsg.setContent(this.handleReply(wxid, content, wechatReceiveMsg));
                     }
                 } catch (Exception e) {
                     wechatMsg.setContent("我不太明白你在说什么~");
@@ -236,7 +237,10 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
         add("[嘿哈]");
     }};
 
-    private String handleReply(String content, WechatReceiveMsg wechatReceiveMsg) throws UnsupportedEncodingException {
+    private static volatile short CHATGPT_COUNTER = 0;
+    private static volatile Map<String, String> PARENT_MSG = new HashMap<>();
+
+    private String handleReply(String wxid, String content, WechatReceiveMsg wechatReceiveMsg) throws UnsupportedEncodingException {
         if (StringUtils.startsWithIgnoreCase(content, "#")) {
             if (content.equals("#")) {
                 return "你想查询什么呀?";
@@ -255,10 +259,40 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                 return "哎呀，我没有记住，可能是哪里出问题了吧~~";
             }
         } else {
-            content = URLEncoder.encode(content, "UTF-8");
-            String res = HttpUtil.get("https://api.ownthink.com/bot?appid=xiaosi&spoken=" + content);
-            JSONObject obj = JSON.parseObject(res);
-            return obj.getJSONObject("data").getJSONObject("info").getString("text");
+            if (CHATGPT_COUNTER < 5) {
+                synchronized (this) {
+                    CHATGPT_COUNTER++;
+                }
+                synchronized (this) {
+                    try {
+                        String parentMsg = PARENT_MSG.get(wxid);
+                        // PARENT_MSG.put(wxid, content); 禁用上下文
+                        Map<String, Object> promptMap = new HashMap<>();
+                        if (parentMsg == null || parentMsg.trim().equals("")) {
+                            promptMap.put("prompt", content);
+                        } else {
+                            List<String> lists = new ArrayList<>();
+                            lists.add(parentMsg);
+                            lists.add(content);
+                            promptMap.put("prompt", lists);
+                        }
+                        String body = JSON.toJSONString(promptMap);
+                        String chatGPT = "http://124.220.35.202:56790/chatgpt_for_wechat";
+                        try (HttpResponse res = HttpUtil.createPost(chatGPT).body(body).header("Content-Type", "application/json;charset=UTF-8").execute(false)) {
+                            return res.body();
+                        }
+                    } catch (Exception e) {
+                        return e.getMessage().substring(0, 50);
+                    } finally {
+                        CHATGPT_COUNTER--;
+                    }
+                }
+            } else {
+                content = URLEncoder.encode(content, "UTF-8");
+                String res = HttpUtil.get("https://api.ownthink.com/bot?appid=xiaosi&spoken=" + content);
+                JSONObject obj = JSON.parseObject(res);
+                return obj.getJSONObject("data").getJSONObject("info").getString("text");
+            }
         }
     }
 
