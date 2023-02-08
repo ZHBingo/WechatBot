@@ -339,11 +339,19 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     public void onClose(int i, String s, boolean b) {
         System.out.println("已断开连接, code=" + i + ", reason=" + s + ", remote=" + b);
         if (WechatBotConfig.BOT_CLIENT != null) {
-            System.out.println("尝试重新连接....");
-            try {
-                WechatBotConfig.BOT_CLIENT.connect();
-            } catch (Exception e) {
-                System.out.println("重连失败, " + e.getMessage());
+            while (true) {
+                System.out.println("尝试重新连接....");
+                try {
+                    WechatBotConfig.BOT_CLIENT.reconnect();
+                    break;
+                } catch (Exception e) {
+                    System.out.println("重连失败, " + e.getMessage());
+                }
+                try {
+                    TimeUnit.SECONDS.sleep(5);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -391,7 +399,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
         }
         // 发送消息
         String string = JSONObject.toJSONString(wechatMsg);
-        System.err.println(":" + string);
+        System.err.println("send to wechat: " + string);
         send(JSONObject.toJSONString(wechatMsg));
     }
 }
