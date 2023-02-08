@@ -7,6 +7,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.uouo.wechatbot.common.WechatBotCommon;
+import io.uouo.wechatbot.common.WechatBotConfig;
 import io.uouo.wechatbot.domain.WechatMsg;
 import io.uouo.wechatbot.domain.WechatReceiveMsg;
 import io.uouo.wechatbot.service.WechatBotService;
@@ -238,7 +239,6 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     }};
 
     private static volatile short CHATGPT_COUNTER = 0;
-    private static volatile Map<String, String> PARENT_MSG = new HashMap<>();
 
     private String handleReply(String wxid, String content, WechatReceiveMsg wechatReceiveMsg) throws UnsupportedEncodingException {
         if (StringUtils.startsWithIgnoreCase(content, "#")) {
@@ -265,21 +265,20 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                 }
                 synchronized (this) {
                     try {
-                        String parentMsg = PARENT_MSG.get(wxid);
                         // PARENT_MSG.put(wxid, content); 禁用上下文
                         Map<String, Object> promptMap = new HashMap<>();
-                        if (parentMsg == null || parentMsg.trim().equals("")) {
-                            promptMap.put("prompt", content);
-                        } else {
-                            List<String> lists = new ArrayList<>();
-                            lists.add(parentMsg);
-                            lists.add(content);
-                            promptMap.put("prompt", lists);
-                        }
+                        promptMap.put("prompt", content);
+                        promptMap.put("conversation_id", wxid);
                         String body = JSON.toJSONString(promptMap);
                         String chatGPT = "http://124.220.35.202:56790/chatgpt_for_wechat";
                         try (HttpResponse res = HttpUtil.createPost(chatGPT).body(body).header("Content-Type", "application/json;charset=UTF-8").execute(false)) {
-                            return res.body();
+                            String result = res.body();
+                            Map<String, Object> temp = new HashMap<>();
+                            temp.put("result", result);
+                            String jsonResult = JSON.toJSONString(temp);
+                            System.out.println("ChatGPT Response=" + jsonResult);
+                            JSONObject obj = JSON.parseObject(jsonResult);
+                            return obj.getString("result");
                         }
                     } catch (Exception e) {
                         return e.getMessage().substring(0, 50);
@@ -338,7 +337,15 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
      */
     @Override
     public void onClose(int i, String s, boolean b) {
-        System.out.println("已断开连接... ");
+        System.out.println("已断开连接, code=" + i + ", reason=" + s + ", remote=" + b);
+        if (WechatBotConfig.BOT_CLIENT != null) {
+            System.out.println("尝试重新连接....");
+            try {
+                WechatBotConfig.BOT_CLIENT.connect();
+            } catch (Exception e) {
+                System.out.println("重连失败, " + e.getMessage());
+            }
+        }
     }
 
     /**

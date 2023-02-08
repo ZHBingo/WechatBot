@@ -15,21 +15,32 @@ import java.net.URISyntaxException;
 @Configuration
 public class WechatBotConfig {
 
-    /** 微信bot 链接地址 */
+    /**
+     * 微信bot 链接地址
+     */
     @Value("${wechatBot.url}")
     private String wechatBotUrl;
 
-    /** 微信消息处理地址 */
+    /**
+     * 微信消息处理地址
+     */
     public static String wechatMsgServerUrl;
-    /** 是否开启远程处理微信消息功能 */
+    /**
+     * 是否开启远程处理微信消息功能
+     */
     public static Boolean wechatMsgServerIsOpen;
 
-    /** 初始化 */
+    public static WechatBotClient BOT_CLIENT = null;
+
+    /**
+     * 初始化
+     */
     @Bean
     public WechatBotClient initWechatBotClient() throws URISyntaxException {
         WechatBotClient botClient = new WechatBotClient(wechatBotUrl);
         // 建立连接
         botClient.connect();
+        BOT_CLIENT = botClient;
         return botClient;
     }
 
