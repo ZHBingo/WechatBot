@@ -1,7 +1,7 @@
 package io.uouo.wechatbot.service.impl;
 
-import com.alibaba.druid.pool.DruidDataSource;
 import io.uouo.wechatbot.common.ApplicationListener;
+import io.uouo.wechatbot.common.SQLiteConnection;
 import io.uouo.wechatbot.common.WechatBotCommon;
 import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
@@ -9,7 +9,6 @@ import io.uouo.wechatbot.domain.WechatReplyMsg;
 import io.uouo.wechatbot.service.WechatBotService;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,13 +28,6 @@ import java.util.*;
  */
 @Service
 public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
-    /**
-     * 注入微信客户端
-     */
-
-    @Resource
-    private DruidDataSource dataSource;
-
     /**
      * 描述: 发送文字消息
      *
@@ -162,8 +154,8 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public List<Map<String, String>> getUnReplyMessage() {
         List<Map<String, String>> result = new ArrayList<>();
-        try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select id, content from message where (reply_stat != 'SUCCSESSED' or reply_stat is null)");
+        String sql = "select id, content from message where (reply_stat != 'SUCCSESSED' or reply_stat is null)";
+        try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -181,8 +173,8 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public List<Map<String, String>> getUserList() {
         List<Map<String, String>> result = new ArrayList<>();
-        try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select wxid, name from userlist");
+        String sql = "select wxid, name from userlist";
+        try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -201,8 +193,8 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     public AjaxResult replMessage(WechatReplyMsg wechatReplyMsg) {
         // 检查这个消息是否已经回复, 如果已经回复了就没必要再回复了
         Map<String, String> message = new HashMap<>();
-        try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("select wxid, at_wxid, at_nickname from message where id = ? and (reply_stat != 'SUCCSESSED' or reply_stat is null)");
+        String sql = "select wxid, at_wxid, at_nickname from message where id = ? and (reply_stat != 'SUCCSESSED' or reply_stat is null)";
+        try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, wechatReplyMsg.getId());
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -243,11 +235,12 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         }
 
         // 更新发送状态
-        try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("update message set reply_id = ?, reply_time = now(), reply_content = ? where id = ?");
+        sql = "update message set reply_id = ?, reply_time = ?, reply_content = ? where id = ?";
+        try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, replyID);
-            ps.setString(2, wechatReplyMsg.getContent());
-            ps.setString(3, wechatReplyMsg.getId());
+            ps.setString(2, new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date()));
+            ps.setString(3, wechatReplyMsg.getContent());
+            ps.setString(4, wechatReplyMsg.getId());
             ps.executeUpdate();
         } catch (SQLException throwables) {
             throwables.printStackTrace();

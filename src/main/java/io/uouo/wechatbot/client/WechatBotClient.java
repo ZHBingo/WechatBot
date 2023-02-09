@@ -2,11 +2,11 @@ package io.uouo.wechatbot.client;
 
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
-import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.uouo.wechatbot.common.ApplicationListener;
+import io.uouo.wechatbot.common.SQLiteConnection;
 import io.uouo.wechatbot.common.SpringContext;
 import io.uouo.wechatbot.common.WechatBotCommon;
 import io.uouo.wechatbot.domain.WechatMsg;
@@ -23,10 +23,8 @@ import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -39,8 +37,6 @@ import java.util.concurrent.TimeUnit;
 public class WechatBotClient extends WebSocketClient implements WechatBotCommon {
 
     private final WechatBotService wechatBotService;
-
-    private final DruidDataSource dataSource;
 
     private final Map<String, String> nickNameMap = new HashMap<>();
 
@@ -56,7 +52,6 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     public WechatBotClient(String url) throws URISyntaxException {
         super(new URI(url));
         wechatBotService = SpringContext.getBean(WechatBotService.class);
-        dataSource = SpringContext.getBean(DruidDataSource.class);
     }
 
     /**
@@ -135,11 +130,10 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                 }
 
                 if (nickNameMap.isEmpty() == false) {
-                    try (Connection conn = dataSource.getConnection()) {
-                        PreparedStatement truncateUserList = conn.prepareStatement("truncate table userlist");
-                        truncateUserList.execute();
-
-                        PreparedStatement ps = conn.prepareStatement("insert into userlist(`wxid`,`name`) values(?,?)");
+                    String sql1 = "delete from userlist";
+                    String sql2 = "insert into userlist(wxid,name) values(?,?)";
+                    try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps1 = conn.prepareStatement(sql1); PreparedStatement ps = conn.prepareStatement(sql2)) {
+                        ps1.execute();
 
                         int i = 0;
                         for (String key : nickNameMap.keySet()) {
@@ -168,8 +162,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
             // 收到发送消息回复报文, 更新回复状态
             if (content.startsWith("send") && "SERVER".equals(wechatReceiveMsg.getSender())) {
                 String sql = "update message set reply_stat = ? where reply_id = ?";
-                try (Connection conn = dataSource.getConnection()) {
-                    PreparedStatement ps = conn.prepareStatement(sql);
+                try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
                     ps.setString(1, wechatReceiveMsg.getStatus());
                     ps.setString(2, wechatReceiveMsg.getId());
                     ps.executeUpdate();
@@ -270,7 +263,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
                         promptMap.put("prompt", content);
                         promptMap.put("conversation_id", wxid);
                         String body = JSON.toJSONString(promptMap);
-                        String chatGPT = "http://124.220.35.202:56790/chatgpt_for_wechat";
+                        String chatGPT = "http://localhost:56790/chatgpt_for_wechat";
                         try (HttpResponse res = HttpUtil.createPost(chatGPT).body(body).header("Content-Type", "application/json;charset=UTF-8").execute(false)) {
                             String result = res.body();
                             Map<String, Object> temp = new HashMap<>();
@@ -305,19 +298,19 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     }
 
     private void saveMessage(String content, WechatReceiveMsg wechatReceiveMsg) {
-        String sql = "insert into wechat.message(id, wxid, content, recv_time, at_wxid, at_nickname) values (?, ?, ?, now(), ?, ?)";
-        try (Connection conn = dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement(sql);
+        String sql = "insert into message(id, wxid, content, recv_time, at_wxid, at_nickname) values (?, ?, ?, ?, ?, ?)";
+        try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, wechatReceiveMsg.getId());
             ps.setString(2, wechatReceiveMsg.getWxid());
             ps.setString(3, content);
+            ps.setString(4, new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(new Date()));
 
             if (wechatReceiveMsg.getWxid().contains("@chatroom")) {
-                ps.setString(4, wechatReceiveMsg.getId1());
-                ps.setString(5, nickNameMap.getOrDefault(wechatReceiveMsg.getId1(), wechatReceiveMsg.getId1()));
+                ps.setString(5, wechatReceiveMsg.getId1());
+                ps.setString(6, nickNameMap.getOrDefault(wechatReceiveMsg.getId1(), wechatReceiveMsg.getId1()));
             } else {
-                ps.setString(4, null);
                 ps.setString(5, null);
+                ps.setString(6, null);
             }
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -338,6 +331,11 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     @Override
     public void onClose(int i, String s, boolean b) {
         System.out.println("已断开连接, code=" + i + ", reason=" + s + ", remote=" + b);
+        try {
+            TimeUnit.SECONDS.sleep(5);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         ApplicationListener.connect();
     }
 
