@@ -1,7 +1,7 @@
 package io.uouo.wechatbot.service.impl;
 
 import com.alibaba.druid.pool.DruidDataSource;
-import io.uouo.wechatbot.client.WechatBotClient;
+import io.uouo.wechatbot.common.ApplicationListener;
 import io.uouo.wechatbot.common.WechatBotCommon;
 import io.uouo.wechatbot.common.util.AjaxResult;
 import io.uouo.wechatbot.domain.WechatMsg;
@@ -32,8 +32,6 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     /**
      * 注入微信客户端
      */
-    @Resource
-    private WechatBotClient wechatBotClient;
 
     @Resource
     private DruidDataSource dataSource;
@@ -49,7 +47,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public void wechatCommon(WechatMsg wechatMsg) {
         // 消息类型
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     /**
@@ -64,7 +62,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     public void sendTextMsg(WechatMsg wechatMsg) {
         wechatMsg.setType(TXT_MSG);
         // 消息类型
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     /**
@@ -78,7 +76,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public void sendImgMsg(WechatMsg wechatMsg) {
         wechatMsg.setType(PIC_MSG);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     /**
@@ -92,7 +90,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public void sendATMsg(WechatMsg wechatMsg) {
         wechatMsg.setType(AT_MSG);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
 
@@ -107,7 +105,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public void sendAnnex(WechatMsg wechatMsg) {
         wechatMsg.setType(ATTATCH_FILE);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
 
@@ -125,7 +123,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         WechatMsg wechatMsg = new WechatMsg();
         wechatMsg.setType(USER_LIST);
         wechatMsg.setContent(CONTACT_LIST);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     /**
@@ -140,7 +138,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     public void getPersonalDetail(String wxid) {
         WechatMsg wechatMsg = new WechatMsg();
         wechatMsg.setType(PERSONAL_DETAIL);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     /**
@@ -158,7 +156,7 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         wechatMsg.setRoomid(roomid);
         wechatMsg.setWxid(roomid);
         wechatMsg.setType(CHATROOM_MEMBER_NICK);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     @Override
@@ -273,11 +271,11 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
         } else {
             suffix = "png";
         }
-        String path = dir + new Date().getTime() + "_" + ((int) (Math.random() * 1000)) + "."+ suffix;
+        String path = dir + new Date().getTime() + "_" + ((int) (Math.random() * 1000)) + "." + suffix;
         this.decryptByBase64(wechatMsg.getContent(), path);
         wechatMsg.setContent(path);
         wechatMsg.setType(PIC_MSG);
-        wechatBotClient.sendMsgUtil(wechatMsg);
+        ApplicationListener.BOT_CLIENT.sendMsgUtil(wechatMsg);
     }
 
     public void decryptByBase64(String base64, String filePath) {

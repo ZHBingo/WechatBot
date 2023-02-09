@@ -8,12 +8,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 @SpringBootApplication
 public class WechatBotApplication {
-    public static String[] args;
-    public static ConfigurableApplicationContext context;
-
     public static void main(String[] args) {
-        WechatBotApplication.args = args;
-        WechatBotApplication.context = SpringApplication.run(WechatBotApplication.class, args);
+        SpringApplication.run(WechatBotApplication.class, args);
     }
-
 }

@@ -6,8 +6,9 @@ import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import io.uouo.wechatbot.common.ApplicationListener;
+import io.uouo.wechatbot.common.SpringContext;
 import io.uouo.wechatbot.common.WechatBotCommon;
-import io.uouo.wechatbot.common.WechatBotConfig;
 import io.uouo.wechatbot.domain.WechatMsg;
 import io.uouo.wechatbot.domain.WechatReceiveMsg;
 import io.uouo.wechatbot.service.WechatBotService;
@@ -15,7 +16,6 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.util.StringUtils;
 
-import javax.annotation.Resource;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -38,11 +38,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class WechatBotClient extends WebSocketClient implements WechatBotCommon {
 
-    @Resource
-    private WechatBotService wechatBotService;
+    private final WechatBotService wechatBotService;
 
-    @Resource
-    private DruidDataSource dataSource;
+    private final DruidDataSource dataSource;
 
     private final Map<String, String> nickNameMap = new HashMap<>();
 
@@ -57,6 +55,8 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
      */
     public WechatBotClient(String url) throws URISyntaxException {
         super(new URI(url));
+        wechatBotService = SpringContext.getBean(WechatBotService.class);
+        dataSource = SpringContext.getBean(DruidDataSource.class);
     }
 
     /**
@@ -338,22 +338,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
     @Override
     public void onClose(int i, String s, boolean b) {
         System.out.println("已断开连接, code=" + i + ", reason=" + s + ", remote=" + b);
-        if (WechatBotConfig.BOT_CLIENT != null) {
-            while (true) {
-                System.out.println("尝试重新连接....");
-                try {
-                    WechatBotConfig.BOT_CLIENT.reconnect();
-                    break;
-                } catch (Exception e) {
-                    System.out.println("重连失败, " + e.getMessage());
-                }
-                try {
-                    TimeUnit.SECONDS.sleep(5);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+        ApplicationListener.connect();
     }
 
     /**
