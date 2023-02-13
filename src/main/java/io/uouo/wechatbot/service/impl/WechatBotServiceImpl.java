@@ -154,13 +154,14 @@ public class WechatBotServiceImpl implements WechatBotService, WechatBotCommon {
     @Override
     public List<Map<String, String>> getUnReplyMessage() {
         List<Map<String, String>> result = new ArrayList<>();
-        String sql = "select id, content from message where (reply_stat != 'SUCCSESSED' or reply_stat is null)";
+        String sql = "select id, wxid, content from message where (reply_stat != 'SUCCSESSED' or reply_stat is null)";
         try (Connection conn = SQLiteConnection.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
                 Map<String, String> map = new HashMap<>();
                 map.put("id", rs.getString("id"));
+                map.put("wxid", rs.getString("wxid"));
                 map.put("content", rs.getString("content"));
                 result.add(map);
             }
