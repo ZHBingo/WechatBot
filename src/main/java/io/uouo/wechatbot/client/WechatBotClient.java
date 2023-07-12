@@ -231,7 +231,7 @@ public class WechatBotClient extends WebSocketClient implements WechatBotCommon 
         add("[嘿哈]");
     }};
 
-    private static volatile short CHATGPT_COUNTER = 0;
+    private static volatile short CHATGPT_COUNTER = 99; // 给一个大数, 让分支永远走不到ChatGPT
 
     private String handleReply(String wxid, String content, WechatReceiveMsg wechatReceiveMsg) throws UnsupportedEncodingException {
         if (StringUtils.startsWithIgnoreCase(content, "#")) {
